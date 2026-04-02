@@ -1047,7 +1047,7 @@ function getActive(){
   for(var j=0;j<c.days.length;j++){if(c.days[j].date===lbl)return{c:c,i:j,live:true};}
   /* Compute dynamic trading-day index from crisis start date */
   var startDate=parseCrisisDate(c.days[0].date,c.id);
-  if(today>startDate){
+  if(today>=startDate){
     /* Count trading days (Mon-Fri) from start through today */
     var tradingDays=0;
     var cursor=new Date(startDate);
@@ -1060,8 +1060,8 @@ function getActive(){
       var count=0;
       while(count<nextD){if(calDate.getDay()!==0&&calDate.getDay()!==6)count++;if(count<nextD)calDate.setDate(calDate.getDate()+1);}
       var dLabel=calDate.getDate()+' '+calDate.toLocaleDateString('sv-SE',{month:'short'});
-      var wkdays=['Mon','Tue','Wed','Thu','Fri'];
-      c.days.push({d:nextD,date:dLabel,ret:null,omx:null,dax:null,n225:null,event:wkdays[calDate.getDay()-1]||''});
+      var wkdays={1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri'};
+      c.days.push({d:nextD,date:dLabel,ret:null,omx:null,dax:null,n225:null,event:wkdays[calDate.getDay()]||''});
     }
     var lastData=0;
     for(var k=0;k<c.days.length;k++){if(c.days[k].ret!==null)lastData=k;}
@@ -1109,6 +1109,7 @@ function calcTrumpFear(){
   if(!ST.news||!ST.news.length)return 0;
   var hits=0,total=ST.news.length;
   for(var i=0;i<total;i++){var txt=(ST.news[i].title||'').toLowerCase();for(var k=0;k<TRUMP_FEAR_WORDS.length;k++){if(txt.indexOf(TRUMP_FEAR_WORDS[k])!==-1){hits++;break;}}}
+  /* Normalise: 0.4 = 40% of headlines → max fear (1.0) */
   var ratio=total>0?hits/total:0;
   return Math.min(1,ratio/0.4);
 }
