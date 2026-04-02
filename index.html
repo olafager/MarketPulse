@@ -1032,13 +1032,47 @@ var BEAR_W=['crash','fall','drop','sell','war','attack','recession','fear','decl
 var BULL_W=['rally','rise','gain','buy','recovery','fed cut','stimulus','strong','growth','beat','surge','bull','rebound','boom','upgrade','bullish','cut rates','record'];
 
 /* ── STATE ─── */
-var ST={tab:0,data:{},fgData:null,news:[],sent:0,pulse:50,pulseHistory:[],fetchFailed:false,fetchCount:0,krisTab:'weekday',selCrisis:'iran2026',overlayOn:['iran2026','covid2020','fin2008'],cmpSel:['ndx','omx','dax','n225'],cmpRange:'1m',predType:'geo',predDay:15,predRets:[],btCrisis:'iran2026'};
+var ST={tab:0,data:{},fgData:null,news:[],sent:0,pulse:50,pulseHistory:[],fetchFailed:false,fetchCount:0,krisTab:'weekday',selCrisis:'iran2026',overlayOn:['iran2026','covid2020','fin2008'],cmpSel:['ndx','omx','dax','n225'],cmpRange:'1m',predType:'geo',predDay:1,predRets:[],btCrisis:'iran2026',trumpFear:0};
 var CH={};
 var FAV=(function(){try{return JSON.parse(localStorage.getItem('mrd_fav')||'[]');}catch(e){return[];}})();
 
 /* ── HELPERS ─── */
 function todayLbl(){var d=new Date();return d.getDate()+' '+d.toLocaleDateString('sv-SE',{month:'short'});}
-function getActive(){var lbl=todayLbl(),c=CRISES[0];for(var j=0;j<c.days.length;j++){if(c.days[j].date===lbl)return{c:c,i:j,live:true};}var last=0;for(var j=0;j<c.days.length;j++){if(c.days[j].ret!==null)last=j;}return{c:c,i:last,live:false};}
+function parseCrisisDate(dateStr,crisisId){var months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};var parts=dateStr.trim().split(' ');var day=parseInt(parts[0],10);var mon=months[parts[1].toLowerCase()];var yearMatch=crisisId?crisisId.match(/(\d{4})/):null;var year=yearMatch?parseInt(yearMatch[1],10):new Date().getFullYear();return new Date(year,mon,day);}
+function getActive(){
+  var today=new Date();today.setHours(0,0,0,0);
+  var c=CRISES[0];
+  /* Try exact date label match first */
+  var lbl=todayLbl();
+  for(var j=0;j<c.days.length;j++){if(c.days[j].date===lbl)return{c:c,i:j,live:true};}
+  /* Compute dynamic trading-day index from crisis start date */
+  var startDate=parseCrisisDate(c.days[0].date,c.id);
+  if(today>=startDate){
+    /* Count trading days (Mon-Fri) from start through today */
+    var tradingDays=0;
+    var cursor=new Date(startDate);
+    while(cursor<=today){var dow=cursor.getDay();if(dow!==0&&dow!==6)tradingDays++;cursor.setDate(cursor.getDate()+1);}
+    var dayIndex=tradingDays-1; /* 0-based */
+    /* Extend days array if today is beyond hardcoded entries */
+    while(c.days.length<=dayIndex){
+      var nextD=c.days.length+1;
+      var calDate=new Date(startDate);
+      var count=0;
+      while(count<nextD){if(calDate.getDay()!==0&&calDate.getDay()!==6)count++;if(count<nextD)calDate.setDate(calDate.getDate()+1);}
+      var dLabel=calDate.getDate()+' '+calDate.toLocaleDateString('sv-SE',{month:'short'});
+      var wkdays={1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri'};
+      c.days.push({d:nextD,date:dLabel,ret:null,omx:null,dax:null,n225:null,event:wkdays[calDate.getDay()]||''});
+    }
+    var lastData=0;
+    for(var k=0;k<c.days.length;k++){if(c.days[k].ret!==null)lastData=k;}
+    if(dayIndex<c.days.length){var isLive=c.days[dayIndex].ret===null;return{c:c,i:dayIndex,live:isLive};}
+    return{c:c,i:lastData,live:false};
+  }
+  /* Fallback: last day with data */
+  var last=0;
+  for(var j=0;j<c.days.length;j++){if(c.days[j].ret!==null)last=j;}
+  return{c:c,i:last,live:false};
+}
 function cumCalc(days,upto){var v=0;for(var i=0;i<=upto;i++){if(days[i]&&days[i].ret!==null)v=((1+v/100)*(1+days[i].ret/100)-1)*100;}return+v.toFixed(2);}
 function scoreSent(t){t=(t||'').toLowerCase();var b=BEAR_W.filter(function(w){return t.indexOf(w)!==-1;}).length,u=BULL_W.filter(function(w){return t.indexOf(w)!==-1;}).length;if(!b&&!u)return 0;return(u-b)/(u+b);}
 
@@ -1069,6 +1103,17 @@ function seedPulseHistory(currentScore){
   return pts;
 }
 
+/* ── TRUMP FEAR INDEX ─── */
+var TRUMP_FEAR_WORDS=['tariff','trade war','trade deal','sanctions','import tax','export ban','trade policy','protectionism','reciprocal tariff','liberation day','trump tariff','trump trade','china tariff','eu tariff','auto tariff','steel tariff','retaliation','trade deficit','customs duty','decoupling'];
+function calcTrumpFear(){
+  if(!ST.news||!ST.news.length)return 0;
+  var hits=0,total=ST.news.length;
+  for(var i=0;i<total;i++){var txt=(ST.news[i].title||'').toLowerCase();for(var k=0;k<TRUMP_FEAR_WORDS.length;k++){if(txt.indexOf(TRUMP_FEAR_WORDS[k])!==-1){hits++;break;}}}
+  /* Normalise: 0.4 = 40% of headlines → max fear (1.0) */
+  var ratio=total>0?hits/total:0;
+  return Math.min(1,ratio/0.4);
+}
+
 /* ── MOOD ENGINE ─── */
 function calcPulse(){
   var score=50,vd=ST.data.vix;
@@ -1077,6 +1122,9 @@ function calcPulse(){
   ['ndx','spx','omx','dax','n225'].forEach(function(id){var d=ST.data[id];if(d&&d.length)rets.push(d[d.length-1].ret);});
   if(rets.length)score+=rets.reduce(function(a,b){return a+b;},0)/rets.length*7;
   score+=ST.sent*22;
+  var tfi=calcTrumpFear();
+  ST.trumpFear=tfi;
+  score-=tfi*20;
   ST.pulse=Math.max(0,Math.min(100,Math.round(score)));
   applyMood(ST.pulse);
   /* Push to 24h history — max 96 points (refresh every 90s ≈ 40/hr × 24h) */
@@ -2217,7 +2265,16 @@ function t0(tc){
   h+='<div style="height:6px;background:linear-gradient(to right,'+cv.dn+','+cv.warn+','+cv.up+');border-radius:3px;position:relative">';
   var sp=Math.min(Math.max((s+1)/2*100,1),99);
   h+='<div style="'+ss({position:'absolute',top:'-5px',width:'16px',height:'16px','border-radius':'50%',background:'var(--accent)','box-shadow':'0 0 8px var(--glow)',left:sp+'%',transform:'translateX(-50%)',border:'2px solid var(--bg)','transition':'left .8s cubic-bezier(.34,1.56,.64,1)'})+'"></div></div>';
-  h+='</div></div></div>';
+  h+='</div>';
+  var tfiPct=Math.round((ST.trumpFear||0)*100);
+  var tfiCol=tfiPct>60?cv.dn:tfiPct>30?cv.warn:cv.up;
+  var tfiLabel=tfiPct>60?'HIGH':tfiPct>30?'ELEVATED':'LOW';
+  h+='<div style="'+ss({'margin-top':'12px','padding-top':'12px','border-top':'1px solid var(--border)','display':'flex','align-items':'center','gap':'8px','flex-wrap':'wrap'})+'">';
+  h+='<span style="'+ss({'font-size':'10px','font-weight':'700','letter-spacing':'.12em',color:'var(--sub)','text-transform':'uppercase'})+'">Trump Fear Index'+tip('Measures tariff &amp; trade war headline frequency. Above 60 = high policy uncertainty dragging markets down.')+'</span>';
+  h+='<span style="'+ss({'font-family':'IBM Plex Mono,monospace','font-size':'18px','font-weight':'900',color:tfiCol})+'">'+tfiPct+'</span>';
+  h+=mkTag(tfiCol,tfiLabel,9);
+  h+='</div>';
+  h+='</div></div>';
 
   /* News */
   h+='<div style="margin-top:32px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">';
