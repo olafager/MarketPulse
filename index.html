@@ -1925,11 +1925,13 @@ async function fetchRSS(feed){
         var link='#';
         var linkEl=els[i].querySelector('link');
         if(linkEl){
-          var lt=linkEl.textContent||'';
-          if(lt&&lt.trim().length>4)link=lt.trim();
+          var lt=(linkEl.textContent||'').trim();
+          /* length>4 filters out empty or near-empty text nodes (self-closing <link/> gives '') */
+          if(lt.length>4)link=lt;
           else{
+            /* Some feeds put the URL as next sibling text node after <link/> */
             var ns=linkEl.nextSibling;
-            if(ns&&ns.nodeType===3&&ns.textContent.trim().indexOf('http')===0)link=ns.textContent.trim();
+            if(ns&&ns.nodeType===Node.TEXT_NODE&&ns.textContent.trim().indexOf('http')===0)link=ns.textContent.trim();
           }
         }
         if(link==='#'){
