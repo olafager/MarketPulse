@@ -362,10 +362,10 @@ button{cursor:pointer;font-family:'IBM Plex Sans',sans-serif;border:none;backgro
 
 /* ── BRIEF HERO ─────────────────────────────────────────────── */
 .brief-hero{
-  padding:clamp(36px,6vw,72px) 18px clamp(28px,5vw,52px);
+  padding:clamp(16px,3vw,36px) 18px clamp(12px,2vw,24px);
   border-bottom:1px solid var(--border);
   position:relative;overflow:hidden;
-  min-height:28vh;
+  min-height:12vh;
   display:flex;flex-direction:column;justify-content:flex-end;
 }
 /* Dramatic accent line */
@@ -379,20 +379,20 @@ button{cursor:pointer;font-family:'IBM Plex Sans',sans-serif;border:none;backgro
 .brief-kicker{
   font-size:10px;font-weight:600;letter-spacing:.32em;
   text-transform:uppercase;color:var(--sub);
-  margin-bottom:14px;padding-left:20px;
+  margin-bottom:6px;padding-left:20px;
 }
 .brief-h1{
   font-family:'Fraunces',serif;font-style:italic;
-  font-size:clamp(18px,2.4vw,36px);
+  font-size:clamp(14px,1.8vw,24px);
   font-weight:900;line-height:1.0;
   color:var(--ink-hi);letter-spacing:-.5px;
-  padding-left:20px;margin-bottom:16px;
+  padding-left:20px;margin-bottom:8px;
   transition:color .6s;
 }
 .brief-h1 .h1-accent{color:var(--accent);transition:color .6s;}
 .brief-deck{
-  font-size:clamp(13px,2vw,16px);color:var(--sub);
-  line-height:1.7;max-width:680px;padding-left:20px;
+  font-size:clamp(11px,1.5vw,14px);color:var(--sub);
+  line-height:1.5;max-width:680px;padding-left:20px;
   font-weight:300;
 }
 
@@ -689,7 +689,7 @@ tr:hover td{background:var(--glow);}
   .brand-tag{display:block;}
   .ticker-wrap{display:block;}
   .pad{padding:0 24px;}
-  .brief-hero{padding:clamp(32px,5vw,60px) 24px clamp(24px,4vw,44px);}
+  .brief-hero{padding:clamp(14px,2.5vw,28px) 24px clamp(10px,2vw,20px);}
   .pulse-section{padding:clamp(20px,3vw,32px) 24px;}
   .sess-col{padding:16px 22px;}
   .hdr-row{padding:0 24px;}
@@ -697,7 +697,7 @@ tr:hover td{background:var(--glow);}
 }
 @media(min-width:1100px){
   .pad{padding:0 28px;}
-  .brief-hero{padding:clamp(40px,5vw,64px) 28px clamp(28px,4vw,48px);}
+  .brief-hero{padding:clamp(16px,2.5vw,32px) 28px clamp(12px,2vw,24px);}
   .pulse-section{padding:clamp(24px,3vw,36px) 28px;}
 }
 /* Touch target minimum */
@@ -2171,6 +2171,14 @@ function t0(tc){
   if(fg){h+=' data-fg="F&G '+fg.score+'" data-sent="'+(s<-0.12?'Bearish':s>0.12?'Bullish':'Neutral')+'"';}
   h+=' style="display:none"></div>';
   h+='<div id="pulse-timeline" style="width:100%;height:160px"></div>';
+  var tfiPct=Math.round((ST.trumpFear||0)*100);
+  var tfiCol=tfiPct>60?cv.dn:tfiPct>30?cv.warn:cv.up;
+  var tfiLabel=tfiPct>60?'HIGH':tfiPct>30?'ELEVATED':'LOW';
+  h+='<div style="'+ss({'margin-top':'10px','display':'flex','align-items':'center','gap':'8px','flex-wrap':'wrap'})+'">';
+  h+='<span style="'+ss({'font-size':'9px','font-weight':'700','letter-spacing':'.18em',color:'var(--sub)','text-transform':'uppercase'})+'">TRUMP FEAR INDEX'+tip('Measures tariff &amp; trade war headline frequency. Above 60 = high policy uncertainty dragging markets down.')+'</span>';
+  h+='<span style="'+ss({'font-family':'IBM Plex Mono,monospace','font-size':'20px','font-weight':'900',color:tfiCol})+'">'+tfiPct+'</span>';
+  h+=mkTag(tfiCol,tfiLabel,9);
+  h+='</div>';
   h+='</div>';
 
   /* ── SESSION STRIP ── */
@@ -2265,14 +2273,6 @@ function t0(tc){
   h+='<div style="height:6px;background:linear-gradient(to right,'+cv.dn+','+cv.warn+','+cv.up+');border-radius:3px;position:relative">';
   var sp=Math.min(Math.max((s+1)/2*100,1),99);
   h+='<div style="'+ss({position:'absolute',top:'-5px',width:'16px',height:'16px','border-radius':'50%',background:'var(--accent)','box-shadow':'0 0 8px var(--glow)',left:sp+'%',transform:'translateX(-50%)',border:'2px solid var(--bg)','transition':'left .8s cubic-bezier(.34,1.56,.64,1)'})+'"></div></div>';
-  h+='</div>';
-  var tfiPct=Math.round((ST.trumpFear||0)*100);
-  var tfiCol=tfiPct>60?cv.dn:tfiPct>30?cv.warn:cv.up;
-  var tfiLabel=tfiPct>60?'HIGH':tfiPct>30?'ELEVATED':'LOW';
-  h+='<div style="'+ss({'margin-top':'12px','padding-top':'12px','border-top':'1px solid var(--border)','display':'flex','align-items':'center','gap':'8px','flex-wrap':'wrap'})+'">';
-  h+='<span style="'+ss({'font-size':'10px','font-weight':'700','letter-spacing':'.12em',color:'var(--sub)','text-transform':'uppercase'})+'">Trump Fear Index'+tip('Measures tariff &amp; trade war headline frequency. Above 60 = high policy uncertainty dragging markets down.')+'</span>';
-  h+='<span style="'+ss({'font-family':'IBM Plex Mono,monospace','font-size':'18px','font-weight':'900',color:tfiCol})+'">'+tfiPct+'</span>';
-  h+=mkTag(tfiCol,tfiLabel,9);
   h+='</div>';
   h+='</div></div>';
 
