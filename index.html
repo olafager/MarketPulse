@@ -362,10 +362,10 @@ button{cursor:pointer;font-family:'IBM Plex Sans',sans-serif;border:none;backgro
 
 /* ── BRIEF HERO ─────────────────────────────────────────────── */
 .brief-hero{
-  padding:clamp(36px,6vw,72px) 18px clamp(28px,5vw,52px);
+  padding:clamp(16px,3vw,36px) 18px clamp(12px,2vw,24px);
   border-bottom:1px solid var(--border);
   position:relative;overflow:hidden;
-  min-height:28vh;
+  min-height:12vh;
   display:flex;flex-direction:column;justify-content:flex-end;
 }
 /* Dramatic accent line */
@@ -379,20 +379,20 @@ button{cursor:pointer;font-family:'IBM Plex Sans',sans-serif;border:none;backgro
 .brief-kicker{
   font-size:10px;font-weight:600;letter-spacing:.32em;
   text-transform:uppercase;color:var(--sub);
-  margin-bottom:14px;padding-left:20px;
+  margin-bottom:6px;padding-left:20px;
 }
 .brief-h1{
   font-family:'Fraunces',serif;font-style:italic;
-  font-size:clamp(18px,2.4vw,36px);
+  font-size:clamp(14px,1.8vw,24px);
   font-weight:900;line-height:1.0;
   color:var(--ink-hi);letter-spacing:-.5px;
-  padding-left:20px;margin-bottom:16px;
+  padding-left:20px;margin-bottom:8px;
   transition:color .6s;
 }
 .brief-h1 .h1-accent{color:var(--accent);transition:color .6s;}
 .brief-deck{
-  font-size:clamp(13px,2vw,16px);color:var(--sub);
-  line-height:1.7;max-width:680px;padding-left:20px;
+  font-size:clamp(11px,1.5vw,14px);color:var(--sub);
+  line-height:1.5;max-width:680px;padding-left:20px;
   font-weight:300;
 }
 
@@ -689,7 +689,7 @@ tr:hover td{background:var(--glow);}
   .brand-tag{display:block;}
   .ticker-wrap{display:block;}
   .pad{padding:0 24px;}
-  .brief-hero{padding:clamp(32px,5vw,60px) 24px clamp(24px,4vw,44px);}
+  .brief-hero{padding:clamp(14px,2.5vw,28px) 24px clamp(10px,2vw,20px);}
   .pulse-section{padding:clamp(20px,3vw,32px) 24px;}
   .sess-col{padding:16px 22px;}
   .hdr-row{padding:0 24px;}
@@ -697,7 +697,7 @@ tr:hover td{background:var(--glow);}
 }
 @media(min-width:1100px){
   .pad{padding:0 28px;}
-  .brief-hero{padding:clamp(40px,5vw,64px) 28px clamp(28px,4vw,48px);}
+  .brief-hero{padding:clamp(16px,2.5vw,32px) 28px clamp(12px,2vw,24px);}
   .pulse-section{padding:clamp(24px,3vw,36px) 28px;}
 }
 /* Touch target minimum */
@@ -1913,16 +1913,42 @@ async function fetchFG(){try{var r=await tryGet('https://production.dataviz.cnn.
 async function fetchRSS(feed){
   /* Parse RSS XML directly via CORS proxy — rss2json deprecated free tier */
   function parseRSS(xml){
-    var items=[]; var tmp=document.createElement('div'); tmp.innerHTML=xml;
-    var els=tmp.querySelectorAll('item');
-    for(var i=0;i<Math.min(els.length,10);i++){
-      var title=(els[i].querySelector('title')||{}).textContent||'';
-      var link=(els[i].querySelector('link')||{}).textContent||(els[i].querySelector('guid')||{}).textContent||'#';
-      var pub=(els[i].querySelector('pubDate')||{}).textContent||'';
-      var desc=(els[i].querySelector('description')||{}).textContent||'';
-      title=title.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').trim();
-      if(title.length>10)items.push({title:title,link:link.trim(),pub:pub,source:feed.name,color:feed.color,sent:scoreSent(title+desc)});
-    }
+    var items=[];
+    try{
+      var parser=new DOMParser();
+      var doc=parser.parseFromString(xml,'text/xml');
+      var els=doc.querySelectorAll('item');
+      for(var i=0;i<Math.min(els.length,10);i++){
+        var title='';
+        var titleEl=els[i].querySelector('title');
+        if(titleEl)title=titleEl.textContent||'';
+        var link='#';
+        var linkEl=els[i].querySelector('link');
+        if(linkEl){
+          var lt=linkEl.textContent||'';
+          if(lt&&lt.trim().length>4)link=lt.trim();
+          else{
+            var ns=linkEl.nextSibling;
+            if(ns&&ns.nodeType===3&&ns.textContent.trim().indexOf('http')===0)link=ns.textContent.trim();
+          }
+        }
+        if(link==='#'){
+          var guidEl=els[i].querySelector('guid');
+          if(guidEl){
+            var gt=guidEl.textContent||'';
+            if(gt.trim().indexOf('http')===0)link=gt.trim();
+          }
+        }
+        var pub='';
+        var pubEl=els[i].querySelector('pubDate');
+        if(pubEl)pub=pubEl.textContent||'';
+        var desc='';
+        var descEl=els[i].querySelector('description');
+        if(descEl)desc=descEl.textContent||'';
+        title=title.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').trim();
+        if(title.length>10)items.push({title:title,link:link,pub:pub,source:feed.name,color:feed.color,sent:scoreSent(title+desc)});
+      }
+    }catch(e){}
     return items;
   }
   var proxies=[
@@ -1991,7 +2017,8 @@ function buildBticker(){
   for(var pass=0;pass<2;pass++){
     for(var i=0;i<Math.min(ST.news.length,14);i++){
       var it=ST.news[i];
-      h+='<span class="bt-item"><span style="opacity:.4">◆</span><a href="'+it.link+'" target="_blank" style="color:inherit">'+it.title+'</a></span>';
+      if(it.link&&it.link!=='#'){h+='<span class="bt-item"><span style="opacity:.4">◆</span><a href="'+it.link+'" target="_blank" style="color:inherit">'+it.title+'</a></span>';}
+      else{h+='<span class="bt-item"><span style="opacity:.4">◆</span><span style="color:inherit">'+it.title+'</span></span>';}
     }
   }
   el.innerHTML=h;
@@ -2099,6 +2126,9 @@ function render(){
 function t0(tc){
   var cv=CV(),mi=moodInfo(ST.pulse),fg=ST.fgData;
   var s=ST.sent,hasNews=ST.news.length>0,sclr=s<-0.08?cv.dn:s>0.08?cv.up:cv.warn;
+  var tfiPct=Math.round((ST.trumpFear||0)*100);
+  var tfiCol=tfiPct>60?cv.dn:tfiPct>30?cv.warn:cv.up;
+  var tfiLabel=tfiPct>60?'HIGH':tfiPct>30?'ELEVATED':'LOW';
   var brief=makeHeadline();
   var hasData=Object.keys(ST.data).some(function(k){return ST.data[k]&&ST.data[k].length;});
   var h='';
@@ -2171,6 +2201,13 @@ function t0(tc){
   if(fg){h+=' data-fg="F&G '+fg.score+'" data-sent="'+(s<-0.12?'Bearish':s>0.12?'Bullish':'Neutral')+'"';}
   h+=' style="display:none"></div>';
   h+='<div id="pulse-timeline" style="width:100%;height:160px"></div>';
+  h+='</div>';
+
+  /* ── TRUMP FEAR INDEX display — prominent, right below pulse timeline ── */
+  h+='<div style="'+ss({padding:'8px 18px 12px','border-bottom':'1px solid var(--border)',display:'flex','align-items':'center',gap:'10px','flex-wrap':'wrap','background':'var(--bg-card)'})+'">';
+  h+='<span style="'+ss({'font-size':'9px','font-weight':'700','letter-spacing':'.18em',color:'var(--sub)','text-transform':'uppercase'})+'">TRUMP FEAR INDEX'+tip('Measures tariff &amp; trade war headline frequency. Above 60 = high policy uncertainty dragging markets down.')+'</span>';
+  h+='<span style="'+ss({'font-family':"'IBM Plex Mono',monospace",'font-size':'20px','font-weight':'900',color:tfiCol,'line-height':'1'})+'">'+tfiPct+'</span>';
+  h+=mkTag(tfiCol,tfiLabel);
   h+='</div>';
 
   /* ── SESSION STRIP ── */
@@ -2266,9 +2303,6 @@ function t0(tc){
   var sp=Math.min(Math.max((s+1)/2*100,1),99);
   h+='<div style="'+ss({position:'absolute',top:'-5px',width:'16px',height:'16px','border-radius':'50%',background:'var(--accent)','box-shadow':'0 0 8px var(--glow)',left:sp+'%',transform:'translateX(-50%)',border:'2px solid var(--bg)','transition':'left .8s cubic-bezier(.34,1.56,.64,1)'})+'"></div></div>';
   h+='</div>';
-  var tfiPct=Math.round((ST.trumpFear||0)*100);
-  var tfiCol=tfiPct>60?cv.dn:tfiPct>30?cv.warn:cv.up;
-  var tfiLabel=tfiPct>60?'HIGH':tfiPct>30?'ELEVATED':'LOW';
   h+='<div style="'+ss({'margin-top':'12px','padding-top':'12px','border-top':'1px solid var(--border)','display':'flex','align-items':'center','gap':'8px','flex-wrap':'wrap'})+'">';
   h+='<span style="'+ss({'font-size':'10px','font-weight':'700','letter-spacing':'.12em',color:'var(--sub)','text-transform':'uppercase'})+'">Trump Fear Index'+tip('Measures tariff &amp; trade war headline frequency. Above 60 = high policy uncertainty dragging markets down.')+'</span>';
   h+='<span style="'+ss({'font-family':'IBM Plex Mono,monospace','font-size':'18px','font-weight':'900',color:tfiCol})+'">'+tfiPct+'</span>';
@@ -2288,10 +2322,13 @@ function t0(tc){
       var scol=item.sent<-0.08?cv.dn:item.sent>0.08?cv.up:cv.sub;
       var slbl=item.sent<-0.08?'Bear':item.sent>0.08?'Bull':'Neut';
       var tstr=item.pub?new Date(item.pub).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'';
-      h+='<a href="'+item.link+'" target="_blank"><div style="padding:9px 0;border-bottom:1px solid var(--border);transition:padding .1s" onmouseover="this.style.paddingLeft=\'4px\'" onmouseout="this.style.paddingLeft=\'0\'">';
-      h+='<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:wrap">'+mkTag(item.color,item.source,9)+' '+mkTag(scol,slbl,9)+'<span style="margin-left:auto;font-size:9px;color:var(--muted)">'+tstr+'</span></div>';
-      h+='<div style="font-size:12px;line-height:1.45;color:var(--ink)">'+item.title+'</div>';
-      h+='</div></a>';
+      var innerHtml='<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:wrap">'+mkTag(item.color,item.source,9)+' '+mkTag(scol,slbl,9)+'<span style="margin-left:auto;font-size:9px;color:var(--muted)">'+tstr+'</span></div>';
+      innerHtml+='<div style="font-size:12px;line-height:1.45;color:var(--ink)">'+item.title+'</div>';
+      if(item.link&&item.link!=='#'){
+        h+='<a href="'+item.link+'" target="_blank"><div style="padding:9px 0;border-bottom:1px solid var(--border);transition:padding .1s" onmouseover="this.style.paddingLeft=\'4px\'" onmouseout="this.style.paddingLeft=\'0\'">'+innerHtml+'</div></a>';
+      }else{
+        h+='<div style="padding:9px 0;border-bottom:1px solid var(--border)">'+innerHtml+'</div>';
+      }
     });
     h+='</div>';
   }else{h+='<div style="padding:28px 0;text-align:center;color:var(--sub);font-size:12px">Loading news...</div>';}
