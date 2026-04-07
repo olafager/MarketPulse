@@ -2203,6 +2203,14 @@ function t0(tc){
   if(fg){h+=' data-fg="F&G '+fg.score+'" data-sent="'+(s<-0.12?'Bearish':s>0.12?'Bullish':'Neutral')+'"';}
   h+=' style="display:none"></div>';
   h+='<div id="pulse-timeline" style="width:100%;height:160px"></div>';
+  var tfiPct=Math.round((ST.trumpFear||0)*100);
+  var tfiCol=tfiPct>60?cv.dn:tfiPct>30?cv.warn:cv.up;
+  var tfiLabel=tfiPct>60?'HIGH':tfiPct>30?'ELEVATED':'LOW';
+  h+='<div style="'+ss({'margin-top':'10px','display':'flex','align-items':'center','gap':'8px','flex-wrap':'wrap'})+'">';
+  h+='<span style="'+ss({'font-size':'9px','font-weight':'700','letter-spacing':'.18em',color:'var(--sub)','text-transform':'uppercase'})+'">TRUMP FEAR INDEX'+tip('Measures tariff &amp; trade war headline frequency. Above 60 = high policy uncertainty dragging markets down.')+'</span>';
+  h+='<span style="'+ss({'font-family':'IBM Plex Mono,monospace','font-size':'20px','font-weight':'900',color:tfiCol})+'">'+tfiPct+'</span>';
+  h+=mkTag(tfiCol,tfiLabel,9);
+  h+='</div>';
   h+='</div>';
 
   /* ── TRUMP FEAR INDEX display — prominent, right below pulse timeline ── */
