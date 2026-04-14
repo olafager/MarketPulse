@@ -2129,14 +2129,9 @@ async function fetchRSS(feed){
           /* length>4 filters out empty or near-empty text nodes (self-closing <link/> gives '') */
           if(lt.length>4)link=lt;
           else{
-            /* Atom feeds use <link href="URL"/> — check the attribute */
-            var ha=(linkEl.getAttribute('href')||'').trim();
-            if(ha.indexOf('http')===0)link=ha;
-            else{
-              /* Some feeds put the URL as next sibling text node after <link/> */
-              var ns=linkEl.nextSibling;
-              if(ns&&ns.nodeType===Node.TEXT_NODE&&ns.textContent.trim().indexOf('http')===0)link=ns.textContent.trim();
-            }
+            /* Some feeds put the URL as next sibling text node after <link/> */
+            var ns=linkEl.nextSibling;
+            if(ns&&ns.nodeType===Node.TEXT_NODE&&ns.textContent.trim().indexOf('http')===0)link=ns.textContent.trim();
           }
         }
         if(link==='#'){
