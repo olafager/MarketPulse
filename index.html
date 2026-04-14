@@ -396,6 +396,32 @@ button{cursor:pointer;font-family:'IBM Plex Sans',sans-serif;border:none;backgro
   font-weight:300;
 }
 
+/* ── PULSE DRIVERS ─────────────────────────────────────────── */
+.pulse-drivers-section{
+  padding:12px 18px 14px;
+  border-bottom:1px solid var(--border);
+}
+.pulse-driver-row{
+  display:flex;align-items:center;gap:10px;margin-bottom:8px;
+}
+.pulse-driver-label{
+  min-width:140px;font-size:11px;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex-shrink:0;
+}
+.pulse-driver-bar-wrap{
+  flex:1;height:5px;background:var(--card-hi);border-radius:3px;overflow:hidden;
+}
+.pulse-driver-bar{
+  height:100%;border-radius:3px;
+  transition:width .6s cubic-bezier(.22,1,.36,1);
+}
+.pulse-driver-val{
+  min-width:64px;text-align:right;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;
+  flex-shrink:0;
+}
+
 /* ── PULSE SECTION ───────────────────────────────────────────── */
 .pulse-section{
   display:flex;align-items:center;
@@ -849,7 +875,7 @@ button,.hdr-tab,.mob-tab,.range-btn,.ob-btn,.ob-btn-alt{min-height:36px;}
       Every colour, every glow, every number responds to live data.
     </p>
     <div class="ob-features">
-      <div class="ob-feat"><div class="ob-feat-icon">🌡</div><div class="ob-feat-title">Pulse Score</div><div class="ob-feat-desc">0–100 market health. Below 30 = stress. Above 70 = euphoria.</div></div>
+      <div class="ob-feat"><div class="ob-feat-icon">🫀</div><div class="ob-feat-title">Pulse Score</div><div class="ob-feat-desc">0–100 heartbeat. Below 30 = calm. Above 70 = stress. The faster the pulse, the more the market is under pressure.</div></div>
       <div class="ob-feat"><div class="ob-feat-icon">🗺</div><div class="ob-feat-title">World Heatmap</div><div class="ob-feat-desc">17 markets. Green = up. Red = down. Size = weight.</div></div>
       <div class="ob-feat"><div class="ob-feat-icon">🎯</div><div class="ob-feat-title">Crisis Forecast</div><div class="ob-feat-desc">AI model predicts next-day direction. Live accuracy shown.</div></div>
       <div class="ob-feat"><div class="ob-feat-icon">★</div><div class="ob-feat-title">Watchlist</div><div class="ob-feat-desc">Star any market. Saved to your device.</div></div>
@@ -977,6 +1003,8 @@ var MKT=[
   {id:'kospi',name:'KOSPI',        sub:'Seoul',         flag:'🇰🇷',sym:'^KS11',     sq:'ks11.ko',  color:'#7070e0',region:'asia',cat:'index',w:2},
   {id:'oil',  name:'WTI Crude',    sub:'Nymex',         flag:'🛢️',sym:'CL=F',      sq:'cl.f',     color:'#c4993a',region:'comm',cat:'comm', w:2},
   {id:'gold', name:'Gold',         sub:'Spot $/oz',     flag:'🥇',sym:'GC=F',       sq:'xauusd',   color:'#e8c860',region:'comm',cat:'comm', w:2},
+  {id:'btc',  name:'Bitcoin',      sub:'Digital Gold',  flag:'₿', sym:'BTC-USD',    sq:'btcusd',   color:'#f7931a',region:'comm',cat:'comm', w:3},
+  {id:'link', name:'Chainlink',    sub:'Oracle Network',flag:'⛓', sym:'LINK-USD',   sq:'linkusd',  color:'#375bd2',region:'comm',cat:'comm', w:1},
 ];
 var SESS=[
   {id:'asia', label:'ASIA',   color:'#e05858',open:0,   close:8,   mkts:['n225','hsi','sse','asx','kospi']},
@@ -1096,12 +1124,12 @@ function seedPulseHistory(currentScore){
     /* Base: night low, morning spike, afternoon drift toward current */
     var hr=(new Date(t)).getUTCHours();
     var base=50;
-    if(hr>=0&&hr<7)  base=35+Math.random()*15;   /* Asia session — lower */
-    if(hr>=7&&hr<10) base=30+Math.random()*25;   /* EU open — volatile */
-    if(hr>=10&&hr<14)base=40+Math.random()*20;   /* EU mid — settle */
-    if(hr>=14&&hr<17)base=45+Math.random()*22;   /* US open — volatile */
-    if(hr>=17&&hr<21)base=42+Math.random()*20;   /* US mid */
-    if(hr>=21)       base=38+Math.random()*15;   /* After hours */
+    if(hr>=0&&hr<7)  base=20+Math.random()*15;   /* Asia/overnight — calm, low pulse */
+    if(hr>=7&&hr<10) base=40+Math.random()*30;   /* EU open — pulse rises on volatility */
+    if(hr>=10&&hr<14)base=35+Math.random()*20;   /* EU mid — settling */
+    if(hr>=14&&hr<17)base=42+Math.random()*28;   /* US open — volatile, elevated pulse */
+    if(hr>=17&&hr<21)base=35+Math.random()*20;   /* US mid — settling */
+    if(hr>=21)       base=22+Math.random()*15;   /* After hours — back to calm */
     /* Blend toward current score as we approach now */
     var blend=Math.pow(1-age,2); /* quadratic ease toward current */
     var v=Math.round(base*(1-blend)+currentScore*blend);
@@ -1121,17 +1149,79 @@ function calcTrumpFear(){
   return Math.min(1,ratio/0.4);
 }
 
-/* ── MOOD ENGINE ─── */
-function calcPulse(){
-  var score=50,vd=ST.data.vix;
-  if(vd&&vd.length){var vv=vd[vd.length-1].close;score+=vv>40?-28:vv>30?-18:vv>20?-8:vv<15?12:2;}
+/* ── PULSE DRIVERS ─── */
+function calcPulseDrivers(){
+  /* Returns sorted array of signal contributors to the current pulse (heartbeat rate).
+     Each entry: {label, value, bar (0-100), col} — sorted highest contribution first. */
+  var cv=CV();
+  var drivers=[];
+
+  /* VIX Fear Gauge */
+  var vd=ST.data.vix;
+  if(vd&&vd.length){
+    var vv=vd[vd.length-1].close;
+    var bar=Math.min(100,Math.round(vv/50*100)); /* VIX 50 = full bar */
+    var col=vv>30?cv.dn:vv>20?cv.warn:cv.up;
+    drivers.push({label:'VIX Fear Gauge',value:'VIX '+vv.toFixed(1),bar:bar,col:col});
+  }
+
+  /* Global Equities (avg return across major indices) */
   var rets=[];
   ['ndx','spx','omx','dax','n225'].forEach(function(id){var d=ST.data[id];if(d&&d.length)rets.push(d[d.length-1].ret);});
-  if(rets.length)score+=rets.reduce(function(a,b){return a+b;},0)/rets.length*7;
-  score+=ST.sent*22;
+  if(rets.length){
+    var avg=+(rets.reduce(function(a,b){return a+b;},0)/rets.length).toFixed(2);
+    /* Negative return → market stress → higher bar */
+    var equitiesBar=Math.min(100,Math.max(0,Math.round((-avg+3)/6*100)));
+    var col2=avg<-1?cv.dn:avg<0?cv.warn:cv.up;
+    drivers.push({label:'Global Equities',value:(avg>=0?'+':'')+avg+'%',bar:equitiesBar,col:col2});
+  }
+
+  /* Trade War Anxiety (Trump Fear Index) */
+  var tfi=ST.trumpFear||0;
+  var tfiCol=tfi>0.6?cv.dn:tfi>0.3?cv.warn:cv.up;
+  drivers.push({label:'Trade War Anxiety',value:Math.round(tfi*100)+'%',bar:Math.round(tfi*100),col:tfiCol});
+
+  /* Oil Shock */
+  var od=ST.data.oil;
+  if(od&&od.length){
+    var oilRet=od[od.length-1].ret;
+    var obar=Math.min(100,Math.round(Math.abs(oilRet)/5*100));
+    var ocol=Math.abs(oilRet)>2?cv.dn:Math.abs(oilRet)>1?cv.warn:cv.up;
+    drivers.push({label:'Oil Shock',value:(oilRet>=0?'+':'')+oilRet.toFixed(2)+'%',bar:obar,col:ocol});
+  }
+
+  /* News Sentiment (bearish news = stress) */
+  var s=ST.sent;
+  var sbar=Math.min(100,Math.max(0,Math.round((-s+1)/2*100)));
+  var scol=s<-0.08?cv.dn:s>0.08?cv.up:cv.warn;
+  drivers.push({label:'News Sentiment',value:s<-0.08?'Bearish':s>0.08?'Bullish':'Neutral',bar:sbar,col:scol});
+
+  /* Crypto Volatility (BTC if available) */
+  var bd=ST.data.btc;
+  if(bd&&bd.length){
+    var br=bd[bd.length-1].ret;
+    var bbar=Math.min(100,Math.round(Math.abs(br)/15*100)); /* BTC 15% move = full bar */
+    var bcol=Math.abs(br)>8?cv.dn:Math.abs(br)>3?cv.warn:cv.up;
+    drivers.push({label:'Crypto Volatility',value:(br>=0?'+':'')+br.toFixed(2)+'%',bar:bbar,col:bcol});
+  }
+
+  /* Sort by bar value descending */
+  drivers.sort(function(a,b){return b.bar-a.bar;});
+  return drivers;
+}
+
+/* ── MOOD ENGINE ─── */
+function calcPulse(){
+  /* Heartbeat metaphor: HIGH score = market stress (racing pulse), LOW score = calm (resting pulse) */
+  var score=50,vd=ST.data.vix;
+  if(vd&&vd.length){var vv=vd[vd.length-1].close;score+=vv>40?28:vv>30?18:vv>20?8:vv<15?-12:-2;}
+  var rets=[];
+  ['ndx','spx','omx','dax','n225'].forEach(function(id){var d=ST.data[id];if(d&&d.length)rets.push(d[d.length-1].ret);});
+  if(rets.length)score-=rets.reduce(function(a,b){return a+b;},0)/rets.length*7;
+  score-=ST.sent*22;
   var tfi=calcTrumpFear();
   ST.trumpFear=tfi;
-  score-=tfi*20;
+  score+=tfi*20;
   ST.pulse=Math.max(0,Math.min(100,Math.round(score)));
   applyMood(ST.pulse);
   /* Push to 24h history — max 96 points (refresh every 90s ≈ 40/hr × 24h) */
@@ -1147,12 +1237,11 @@ function calcPulse(){
   return ST.pulse;
 }
 function moodInfo(s){
-  if(s<15)return{name:'crisis',   word:'CRISIS',     col:'#e05858',italic:'Market in freefall. Extreme risk signals.'};
-  if(s<30)return{name:'nervous',  word:'NERVOUS',    col:'#d49040',italic:'Fear is elevated. Tread carefully.'};
-  if(s<50)return{name:'neutral',  word:'CAUTIOUS',   col:'#c4993a',italic:'Mixed signals. No clear direction.'};
-  if(s<70)return{name:'neutral',  word:'STEADY',     col:'#c4993a',italic:'Balanced conditions. Moderate risk appetite.'};
-  if(s<85)return{name:'optimistic',word:'OPTIMISTIC',col:'#38a8b8',italic:'Risk-on. Flows favour equities.'};
-  return       {name:'euphoric',  word:'EUPHORIC',   col:'#38c868',italic:'Strong bull momentum. Watch for complacency.'};
+  if(s<30)return{name:'euphoric',  word:'RESTING',    col:'#38c868',italic:'Markets are calm and relaxed. Healthy resting pulse.'};
+  if(s<45)return{name:'optimistic',word:'STEADY',     col:'#38a8b8',italic:'Low volatility. Markets beating steadily.'};
+  if(s<55)return{name:'neutral',   word:'ELEVATED',   col:'#c4993a',italic:'Mixed signals. Pulse slightly elevated.'};
+  if(s<70)return{name:'nervous',   word:'NERVOUS',    col:'#d49040',italic:'Heart rate rising. Increased market stress.'};
+  return       {name:'crisis',     word:'RACING',     col:'#e05858',italic:'Market pulse is racing. Extreme stress signals.'};
 }
 function applyMood(s){
   var mi=moodInfo(s);
@@ -1298,13 +1387,13 @@ var _ekgCanvas=null, _ekgCtx=null, _ekgTimer=null, _ekgAnimFrame=null;
 var _ekgSpike=null; /* {t:timestamp, col:color, nowX:x, nowY:y} */
 
 function ekgBeatRate(){
-  /* Beat rate in ms — faster when stressed, slower when calm */
+  /* Beat rate in ms — faster when stressed (high pulse), slower when calm (low pulse) */
   var p=ST.pulse;
-  if(p<20) return 650;   /* crisis — rapid */
-  if(p<35) return 850;   /* nervous */
-  if(p<55) return 1100;  /* cautious */
-  if(p<70) return 1400;  /* steady */
-  return 1700;           /* euphoric — slow, relaxed */
+  if(p>80) return 650;   /* racing — rapid */
+  if(p>65) return 850;   /* nervous */
+  if(p>45) return 1100;  /* elevated */
+  if(p>30) return 1400;  /* steady */
+  return 1700;           /* resting — slow, relaxed */
 }
 
 function ekgInit(svgEl){
@@ -1558,8 +1647,8 @@ function drawPulseTimeline(containerId){
   svg+='<clipPath id="'+uid+'cl"><rect x="'+PL+'" y="'+PT+'" width="'+IW+'" height="'+IH+'"/></clipPath>';
   svg+='</defs>';
 
-  /* Zone bands */
-  var zones=[[0,30,'#e05858',.07],[30,50,'#e09050',.06],[50,70,'#c4993a',.05],[70,100,'#42c87e',.06]];
+  /* Zone bands — low pulse = calm (green), high pulse = racing (red) */
+  var zones=[[0,30,'#42c87e',.06],[30,50,'#c4993a',.05],[50,70,'#e09050',.06],[70,100,'#e05858',.07]];
   svg+='<g clip-path="url(#'+uid+'cl)">';
   zones.forEach(function(z){
     var y1=PT+(1-z[1]/100)*IH, y2=PT+(1-z[0]/100)*IH;
@@ -1742,7 +1831,7 @@ function drawPulseCurve(containerId){
 
   /* Zone background bands (clipped) */
   svg+='<g clip-path="url(#'+uid+'c)">';
-  var zones=[[0,30,'#e05858',.05],[30,50,'#e09050',.05],[50,70,'#c4993a',.04],[70,100,'#42c87e',.05]];
+  var zones=[[0,30,'#42c87e',.05],[30,50,'#c4993a',.04],[50,70,'#e09050',.05],[70,100,'#e05858',.05]];
   zones.forEach(function(z){
     var y1=PAD.t+(1-z[1]/100)*iH, y2=PAD.t+(1-z[0]/100)*iH;
     svg+='<rect x="'+PAD.l+'" y="'+y1+'" width="'+iW+'" height="'+(y2-y1)+'" fill="'+z[2]+'" opacity="'+z[3]+'"/>';
@@ -2232,6 +2321,19 @@ function t0(tc){
   h+=mkTag(tfiCol,tfiLabel);
   h+='</div>';
 
+  /* ── PULSE DRIVERS — what's raising the heartbeat ── */
+  var drivers=calcPulseDrivers();
+  h+='<div class="pulse-drivers-section">';
+  h+='<div style="'+ss({'font-size':'9px','font-weight':'700','letter-spacing':'.18em','text-transform':'uppercase',color:'var(--sub)','margin-bottom':'12px'})+'">PULSE DRIVERS — WHAT\'S RAISING THE HEARTBEAT</div>';
+  drivers.forEach(function(drv){
+    h+='<div class="pulse-driver-row">';
+    h+='<div class="pulse-driver-label">'+drv.label+'</div>';
+    h+='<div class="pulse-driver-bar-wrap"><div class="pulse-driver-bar" style="width:'+drv.bar+'%;background:'+drv.col+'"></div></div>';
+    h+='<div class="pulse-driver-val" style="color:'+drv.col+'">'+drv.value+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+
   /* ── SESSION STRIP ── */
   h+='<div class="sess-strip rev rev2">';
   SESS.forEach(function(sess){
@@ -2294,7 +2396,7 @@ function t0(tc){
   /* Commodities + Sentiment */
   h+='<div class="g2" style="margin-top:28px">';
   h+='<div class="card card-p"><div style="font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--sub);margin-bottom:12px">Commodities</div>';
-  [{id:'oil',pre:'$'},{id:'gold',pre:'$'},{id:'vix',pre:''}].forEach(function(item){
+  [{id:'oil',pre:'$'},{id:'gold',pre:'$'},{id:'btc',pre:'$'},{id:'link',pre:'$'},{id:'vix',pre:''}].forEach(function(item){
     var m=null;for(var mi=0;mi<MKT.length;mi++){if(MKT[mi].id===item.id){m=MKT[mi];break;}}if(!m)return;
     var d=ST.data[m.id],last=d?d[d.length-1]:null;
     var isVix=m.id==='vix',col=isVix?(last&&last.close>30?cv.dn:last&&last.close>20?cv.warn:cv.up):(last&&last.ret>=0?cv.up:cv.dn);
@@ -2478,6 +2580,8 @@ var MKT_GEO={
   kospi:[127.0, 37.6],
   oil:  [ 46.7, 24.7],
   gold: [ -0.1, 51.5],
+  btc:  [-100.0, 30.0],
+  link: [-122.4, 37.8],
 };
 
 /* Spread bubbles radially from their anchor — bigger gaps */
@@ -2498,6 +2602,8 @@ var MKT_OFFSETS={
   asx:  [  0,  0],
   oil:  [  0,  0],
   gold: [-38,-20],
+  btc:  [  0,  0],
+  link: [ 30, 20],
 };
 
 var MAP_MKTS_V2=[];
@@ -2510,6 +2616,7 @@ var _mkt_list=[
   {id:'hsi',  r: 9,flag:'🇭🇰'},{id:'sse',  r:10,flag:'🇨🇳'},
   {id:'asx',  r: 9,flag:'🇦🇺'},{id:'kospi',r: 8,flag:'🇰🇷'},
   {id:'oil',  r: 9,flag:'🛢️'}, {id:'gold', r: 8,flag:'🥇'},
+  {id:'btc',  r:11,flag:'₿'},  {id:'link', r: 6,flag:'⛓'},
 ];
 _mkt_list.forEach(function(m){
   var geo=MKT_GEO[m.id]||[0,0];
