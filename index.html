@@ -1005,6 +1005,8 @@ var MKT=[
   {id:'gold', name:'Gold',         sub:'Spot $/oz',     flag:'🥇',sym:'GC=F',       sq:'xauusd',   color:'#e8c860',region:'comm',cat:'comm', w:2},
   {id:'btc',  name:'Bitcoin',      sub:'Digital Gold',  flag:'₿', sym:'BTC-USD',    sq:'btcusd',   color:'#f7931a',region:'comm',cat:'comm', w:3},
   {id:'link', name:'Chainlink',    sub:'Oracle Network',flag:'⛓', sym:'LINK-USD',   sq:'linkusd',  color:'#375bd2',region:'comm',cat:'comm', w:1},
+  {id:'ust10',name:'US 10Y Yield', sub:'Treasury',      flag:'🏛', sym:'^TNX',       sq:'^tnx',     color:'#8090b0',region:'us',  cat:'bond', w:1},
+  {id:'dxy',  name:'US Dollar Index',sub:'Dollar',      flag:'💵', sym:'DX-Y.NYB',   sq:'dxy',      color:'#7a8aaa',region:'us',  cat:'fx',   w:1},
 ];
 var SESS=[
   {id:'asia', label:'ASIA',   color:'#e05858',open:0,   close:8,   mkts:['n225','hsi','sse','asx','kospi']},
@@ -1072,7 +1074,7 @@ var BEAR_W=['crash','fall','drop','sell','war','attack','recession','fear','decl
 var BULL_W=['rally','rise','gain','buy','recovery','fed cut','stimulus','strong','growth','beat','surge','bull','rebound','boom','upgrade','bullish','cut rates','record'];
 
 /* ── STATE ─── */
-var ST={tab:0,data:{},fgData:null,news:[],sent:0,pulse:50,pulseHistory:[],fetchFailed:false,fetchCount:0,krisTab:'weekday',selCrisis:'iran2026',overlayOn:['iran2026','covid2020','fin2008'],cmpSel:['ndx','omx','dax','n225'],cmpRange:'1m',predType:'geo',predDay:1,predRets:[],btCrisis:'iran2026',trumpFear:0};
+var ST={tab:0,data:{},fgData:null,news:[],sent:0,pulse:50,pulseHistory:[],fearHistory:[],fetchFailed:false,fetchCount:0,krisTab:'weekday',selCrisis:'iran2026',overlayOn:['iran2026','covid2020','fin2008'],cmpSel:['ndx','omx','dax','n225'],cmpRange:'1m',predType:'geo',predDay:1,predRets:[],btCrisis:'iran2026',trumpFear:0};
 var CH={};
 var FAV=(function(){try{return JSON.parse(localStorage.getItem('mrd_fav')||'[]');}catch(e){return[];}})();
 
@@ -1210,6 +1212,55 @@ function calcPulseDrivers(){
     drivers.push({label:'Crypto Volatility',value:(br>=0?'+':'')+br.toFixed(2)+'%',bar:bbar,col:bcol});
   }
 
+  /* Bond Stress (US 10Y Treasury Yield) */
+  var yd=ST.data.ust10;
+  if(yd&&yd.length){
+    var yv=yd[yd.length-1].close;
+    var ybar=Math.min(100,Math.max(0,Math.round((yv-3)/3*100))); /* 3%=0 bar, 6%=full bar */
+    var ycol=yv>5?cv.dn:yv>4.5?cv.warn:cv.up;
+    drivers.push({label:'Bond Stress',value:yv.toFixed(2)+'%',bar:ybar,col:ycol});
+  }
+
+  /* Safe Haven Flow (Gold up while equities down) */
+  var gd=ST.data.gold;
+  if(gd&&gd.length&&rets.length){
+    var goldRet=gd[gd.length-1].ret;
+    var avgEqRet=rets.reduce(function(a,b){return a+b;},0)/rets.length;
+    var div=goldRet-avgEqRet;
+    var safeHaven=goldRet>0.3&&avgEqRet<-0.5;
+    var shBar=safeHaven?Math.min(100,Math.round(div/5*100)):Math.max(0,Math.round(div/10*100));
+    var shCol=safeHaven?cv.warn:goldRet>0?cv.up:cv.dn;
+    drivers.push({label:'Safe Haven Flow',value:(goldRet>=0?'+':'')+goldRet.toFixed(2)+'%',bar:shBar,col:shCol});
+  }
+
+  /* Narrative Velocity (rate of change of fear headlines) */
+  var fh=ST.fearHistory||[];
+  if(fh.length>=2){
+    var fDelta=fh[fh.length-1]-fh[0];
+    var nvBar=Math.min(100,Math.max(0,Math.round(Math.abs(fDelta)/0.5*100)));
+    var nvCol=fDelta>0.1?cv.dn:fDelta<-0.1?cv.up:cv.warn;
+    drivers.push({label:'Narrative Velocity',value:(fDelta>=0?'+':'')+Math.round(fDelta*100)+'%',bar:nvBar,col:nvCol});
+  }
+
+  /* BTC Stress (downside stress gauge — negative returns only) */
+  if(bd&&bd.length){
+    var bRet=bd[bd.length-1].ret;
+    var btcStressBar=bRet<0?Math.min(100,Math.round(Math.abs(bRet)/8*100)):0;
+    var btcStressCol=bRet<-5?cv.dn:bRet<-3?cv.warn:cv.up;
+    drivers.push({label:'Crypto Stress',value:(bRet>=0?'+':'')+bRet.toFixed(2)+'%',bar:btcStressBar,col:btcStressCol});
+  }
+
+  /* Dollar Flight (DXY surge during equity selloff) */
+  var dxyd=ST.data.dxy;
+  if(dxyd&&dxyd.length&&rets.length){
+    var dxyRet=dxyd[dxyd.length-1].ret;
+    var avgEqRet3=rets.reduce(function(a,b){return a+b;},0)/rets.length;
+    var dollarFlight=dxyRet>0.5&&avgEqRet3<-0.5;
+    var dfBar=dollarFlight?Math.min(100,Math.round((dxyRet-avgEqRet3)/5*100)):Math.max(0,Math.round(dxyRet/2*100));
+    var dfCol=dollarFlight?cv.dn:dxyRet>0.5?cv.warn:cv.up;
+    drivers.push({label:'Dollar Flight',value:(dxyRet>=0?'+':'')+dxyRet.toFixed(2)+'%',bar:dfBar,col:dfCol});
+  }
+
   /* Sort by bar value descending */
   drivers.sort(function(a,b){return b.bar-a.bar;});
   return drivers;
@@ -1227,6 +1278,34 @@ function calcPulse(){
   var tfi=calcTrumpFear();
   ST.trumpFear=tfi;
   score+=tfi*20;
+  /* Narrative Velocity — track fear history (max 4 entries) */
+  if(!ST.fearHistory)ST.fearHistory=[];
+  ST.fearHistory.push(tfi);
+  if(ST.fearHistory.length>4)ST.fearHistory.shift();
+  if(ST.fearHistory.length>=2){
+    var fVel=ST.fearHistory[ST.fearHistory.length-1]-ST.fearHistory[0];
+    if(fVel>0)score+=Math.min(8,Math.round(fVel/0.5*8));
+  }
+  /* Bond Stress (US 10Y Treasury Yield) */
+  var yd2=ST.data.ust10;
+  if(yd2&&yd2.length){var yv2=yd2[yd2.length-1].close;score+=yv2>5?15:yv2>4.5?8:0;}
+  /* Safe Haven Flow (gold up while equities down) */
+  var gd2=ST.data.gold;
+  if(gd2&&gd2.length&&rets.length){
+    var gRet=gd2[gd2.length-1].ret;
+    var eAvg=rets.reduce(function(a,b){return a+b;},0)/rets.length;
+    if(gRet>0.3&&eAvg<-0.5)score+=Math.min(10,Math.round((gRet-eAvg)/5*10));
+  }
+  /* BTC Stress (downside only) */
+  var bd2=ST.data.btc;
+  if(bd2&&bd2.length){var bRet2=bd2[bd2.length-1].ret;if(bRet2<-5)score+=8;else if(bRet2<-3)score+=4;}
+  /* Dollar Flight (DXY surge + equity sell-off) */
+  var dxyd2=ST.data.dxy;
+  if(dxyd2&&dxyd2.length&&rets.length){
+    var dRet=dxyd2[dxyd2.length-1].ret;
+    var eAvg2=rets.reduce(function(a,b){return a+b;},0)/rets.length;
+    if(dRet>0.5&&eAvg2<-0.5)score+=Math.min(6,Math.round((dRet-eAvg2)/5*6));
+  }
   ST.pulse=Math.max(0,Math.min(100,Math.round(score)));
   applyMood(ST.pulse);
   /* Push to 24h history — max 96 points (refresh every 90s ≈ 40/hr × 24h) */
@@ -2337,13 +2416,6 @@ function t0(tc){
   h+='<span style="'+ss({'font-family':'IBM Plex Mono,monospace','font-size':'20px','font-weight':'900',color:tfiCol})+'">'+tfiPct+'</span>';
   h+=mkTag(tfiCol,tfiLabel,9);
   h+='</div>';
-  h+='</div>';
-
-  /* ── TRUMP FEAR INDEX display — prominent, right below pulse timeline ── */
-  h+='<div style="'+ss({padding:'8px 18px 12px','border-bottom':'1px solid var(--border)',display:'flex','align-items':'center',gap:'10px','flex-wrap':'wrap','background':'var(--bg-card)'})+'">';
-  h+='<span style="'+ss({'font-size':'9px','font-weight':'700','letter-spacing':'.18em',color:'var(--sub)','text-transform':'uppercase'})+'">TRUMP FEAR INDEX'+tip('Measures tariff &amp; trade war headline frequency. Above 60 = high policy uncertainty dragging markets down.')+'</span>';
-  h+='<span style="'+ss({'font-family':"'IBM Plex Mono',monospace",'font-size':'20px','font-weight':'900',color:tfiCol,'line-height':'1'})+'">'+tfiPct+'</span>';
-  h+=mkTag(tfiCol,tfiLabel);
   h+='</div>';
 
   /* ── PULSE DRIVERS — what's raising the heartbeat ── */
