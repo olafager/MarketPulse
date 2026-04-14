@@ -1171,9 +1171,9 @@ function calcPulseDrivers(){
   if(rets.length){
     var avg=+(rets.reduce(function(a,b){return a+b;},0)/rets.length).toFixed(2);
     /* Negative return → market stress → higher bar */
-    var bar2=Math.min(100,Math.max(0,Math.round((-avg+3)/6*100)));
+    var equitiesBar=Math.min(100,Math.max(0,Math.round((-avg+3)/6*100)));
     var col2=avg<-1?cv.dn:avg<0?cv.warn:cv.up;
-    drivers.push({label:'Global Equities',value:(avg>=0?'+':'')+avg+'%',bar:bar2,col:col2});
+    drivers.push({label:'Global Equities',value:(avg>=0?'+':'')+avg+'%',bar:equitiesBar,col:col2});
   }
 
   /* Trade War Anxiety (Trump Fear Index) */
@@ -1184,10 +1184,10 @@ function calcPulseDrivers(){
   /* Oil Shock */
   var od=ST.data.oil;
   if(od&&od.length){
-    var or2=od[od.length-1].ret;
-    var obar=Math.min(100,Math.round(Math.abs(or2)/5*100));
-    var ocol=Math.abs(or2)>2?cv.dn:Math.abs(or2)>1?cv.warn:cv.up;
-    drivers.push({label:'Oil Shock',value:(or2>=0?'+':'')+or2.toFixed(2)+'%',bar:obar,col:ocol});
+    var oilRet=od[od.length-1].ret;
+    var obar=Math.min(100,Math.round(Math.abs(oilRet)/5*100));
+    var ocol=Math.abs(oilRet)>2?cv.dn:Math.abs(oilRet)>1?cv.warn:cv.up;
+    drivers.push({label:'Oil Shock',value:(oilRet>=0?'+':'')+oilRet.toFixed(2)+'%',bar:obar,col:ocol});
   }
 
   /* News Sentiment (bearish news = stress) */
